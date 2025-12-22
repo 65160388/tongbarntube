@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { HistoryItem, Video } from '@/types';
 
 const HISTORY_KEY = 'tongbarntube-history';
-const MAX_HISTORY_ITEMS = 20;
+const MAX_HISTORY_ITEMS = 16;
 
 export function useHistory() {
   const [history, setHistory] = useState<HistoryItem[]>(() => {
@@ -19,15 +19,15 @@ export function useHistory() {
     setHistory((prev) => {
       // Remove existing entry for this video
       const filtered = prev.filter((item) => item.id !== video.id);
-      
+
       // Add to beginning with timestamp
       const newItem: HistoryItem = {
         ...video,
         watchedAt: Date.now(),
       };
-      
+
       const updated = [newItem, ...filtered];
-      
+
       // Keep only last MAX_HISTORY_ITEMS
       return updated.slice(0, MAX_HISTORY_ITEMS);
     });
