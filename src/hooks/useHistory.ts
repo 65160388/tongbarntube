@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { HistoryItem, Video } from '@/types';
 
 const HISTORY_KEY = 'tongbarntube-history';
-const MAX_HISTORY_ITEMS = 16;
+const MAX_HISTORY_ITEMS = 50;
 
 export function useHistory() {
   const [history, setHistory] = useState<HistoryItem[]>(() => {

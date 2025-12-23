@@ -49,6 +49,13 @@ export default function Watch() {
     }
     : null, [videoId, playlistId]);
 
+  // Ensure current video is always added to history (Move to Top)
+  useEffect(() => {
+    if (currentPlayingVideo) {
+      addToHistory(currentPlayingVideo);
+    }
+  }, [currentPlayingVideo, addToHistory]);
+
 
 
   const handleVideoEnd = useCallback(() => {
@@ -177,7 +184,7 @@ export default function Watch() {
           {history.length > 1 && (
             <section className="opacity-0 animate-fade-in stagger-2 mt-8">
               <h2 className="text-lg font-semibold mb-4">{t('recentlyWatched')}</h2>
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-4 gap-2">
                 {history
                   .filter((item) => item.id !== videoId)
                   .slice(0, 16)
