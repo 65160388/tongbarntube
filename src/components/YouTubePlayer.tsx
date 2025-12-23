@@ -331,23 +331,28 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
       {/* Video Container with dynamic glow in dark mode */}
       <div
         className={cn(
-          "relative w-full rounded-xl overflow-hidden",
-          "dark:ring-1 dark:ring-white/10",
-          "transition-all duration-500"
+          "relative w-full rounded-xl",
+          "transition-all duration-700 ease-in-out"
         )}
         style={{
           boxShadow: dominantColor
-            ? `0 0 80px rgba(${dominantColor}, 0.3), 0 0 30px rgba(${dominantColor}, 0.2)`
-            : undefined
+            ? `0 0 120px -20px rgba(${dominantColor}, 0.5), 
+               0 0 60px -10px rgba(${dominantColor}, 0.3),
+               0 0 20px -5px rgba(${dominantColor}, 0.4)`
+            : '0 0 40px -10px rgba(0,0,0,0.1)'
         }}
       >
-        {/* Ambient glow effect */}
+        {/* Deep Ambient Background Layer */}
         <div
-          className="absolute -inset-2 rounded-xl blur-2xl opacity-0 dark:opacity-60 transition-opacity duration-500 pointer-events-none"
+          className="absolute -inset-[10%] rounded-[30px] blur-[60px] opacity-40 dark:opacity-60 transition-all duration-1000 pointer-events-none -z-10"
           style={{
             background: dominantColor
-              ? `radial-gradient(circle, rgba(${dominantColor}, 0.4) 0%, transparent 70%)`
-              : undefined
+              ? `conic-gradient(from 0deg at 50% 50%, 
+                  rgba(${dominantColor}, 0.2) 0deg, 
+                  rgba(${dominantColor}, 0.5) 180deg, 
+                  rgba(${dominantColor}, 0.2) 360deg)`
+              : undefined,
+            transform: 'scale(0.95)',
           }}
         />
 
