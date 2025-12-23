@@ -11,19 +11,23 @@ interface NavbarProps {
   language: Language;
   toggleLanguage: () => void;
   t: (key: string) => string;
+  autoHide?: boolean;
 }
 
-export function Navbar({ theme, toggleTheme, language, toggleLanguage, t }: NavbarProps) {
-  const [isVisible, setIsVisible] = useState(true);
+export function Navbar({ theme, toggleTheme, language, toggleLanguage, t, autoHide = false }: NavbarProps) {
+  const [isVisible, setIsVisible] = useState(!autoHide);
+  const [isHovered, setIsHovered] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [themeAnimating, setThemeAnimating] = useState(false);
   const [langAnimating, setLangAnimating] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
+    if (autoHide) return;
+
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      
+
       if (currentScrollY < 50) {
         setIsVisible(true);
       } else if (currentScrollY > lastScrollY) {
@@ -31,13 +35,15 @@ export function Navbar({ theme, toggleTheme, language, toggleLanguage, t }: Navb
       } else {
         setIsVisible(true);
       }
-      
+
       setLastScrollY(currentScrollY);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+  }, [lastScrollY, autoHide]);
+
+  const showNavbar = !autoHide ? isVisible : (isVisible || isHovered);
 
   const isHome = location.pathname === '/';
 
@@ -55,18 +61,29 @@ export function Navbar({ theme, toggleTheme, language, toggleLanguage, t }: Navb
 
   return (
     <>
+      {/* Hover Trigger Zone for Auto-Hide Mode */}
+      {autoHide && (
+        <div
+          className="fixed top-0 left-0 right-0 h-6 z-[60] bg-transparent"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        />
+      )}
+
       <nav
         className={cn(
           "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-          isVisible ? "translate-y-0" : "-translate-y-full",
+          showNavbar ? "translate-y-0" : "-translate-y-full",
           "glass-strong"
         )}
+        onMouseEnter={() => autoHide && setIsHovered(true)}
+        onMouseLeave={() => autoHide && setIsHovered(false)}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="flex items-center gap-2 group"
             >
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-all duration-300 group-hover:scale-105">
@@ -110,7 +127,7 @@ export function Navbar({ theme, toggleTheme, language, toggleLanguage, t }: Navb
                   {language === 'en' ? 'TH' : 'EN'}
                 </span>
               </Button>
-              
+
               {/* Theme Toggle */}
               <Button
                 variant="ghost"
@@ -136,7 +153,7 @@ export function Navbar({ theme, toggleTheme, language, toggleLanguage, t }: Navb
           </div>
         </div>
       </nav>
-      
+
       {/* Spacer */}
       <div className="h-14" />
     </>

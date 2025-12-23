@@ -225,6 +225,7 @@ export default function Watch() {
           language={language}
           toggleLanguage={toggleLanguage}
           t={t}
+          autoHide // Enable auto-hide for Watch page
         />
 
         <main className="container max-w-7xl mx-auto px-4 py-6">
