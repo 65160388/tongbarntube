@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from 'react';
 import type { Video } from '@/types';
 
 interface QueueContextType {
@@ -15,6 +15,12 @@ const QueueContext = createContext<QueueContextType | undefined>(undefined);
 
 export function QueueProvider({ children }: { children: ReactNode }) {
     const [queue, setQueue] = useState<Video[]>([]);
+    const queueRef = useRef<Video[]>(queue);
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        queueRef.current = queue;
+    }, [queue]);
 
     const addToQueue = useCallback((video: Video) => {
         setQueue((prev) => {
@@ -36,41 +42,16 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const playNextFromQueue = useCallback((): Video | null => {
-        // We need to return the value and update state. 
-        // Since state update is async, we can't rely on 'queue' state immediately after setQueue in the same tick if we needed it,
-        // but here we just need to return the *next* item.
-        let nextItem: Video | null = null;
+        // Use ref to get the absolute latest queue state synchronously
+        const currentQueue = queueRef.current;
 
-        setQueue((prev) => {
-            if (prev.length === 0) {
-                nextItem = null;
-                return prev;
-            }
-            const [next, ...rest] = prev;
-            nextItem = next;
-            return rest;
-        });
+        if (currentQueue.length === 0) return null;
 
-        // The 'nextItem' local variable won't work inside setQueue for the return of the *Outer* function, 
-        // BUT playNextFromQueue needs to return the item.
-        // This is tricky with useState functional updates.
-        // IMPT: The original implementation in useQueue.ts had:
-        // const [next, ...rest] = queue; setQueue(rest); return next;
-        // That relied on the 'queue' closure capture.
-        // For a context method, proper way is accessing current state.
-
-        // We can't synchronously return the next item if we use functional setQueue blindly.
-        // However, we can use the 'queue' from the render scope because we are inside the component.
-        // BUT, if multiple updates happen fast, render scope might be stale? 
-        // In this app, it's triggered by UI user action or slow video end events. Stable queue is fine.
-
-        // Let's us the render-scope 'queue' for returning, and setQueue for update.
-        // Ref:
-        if (queue.length === 0) return null;
-        const [next, ...rest] = queue;
+        const [next, ...rest] = currentQueue;
+        // Update state (and thus ref via effect)
         setQueue(rest);
         return next;
-    }, [queue]);
+    }, []);
 
     const clearQueue = useCallback(() => {
         setQueue([]);

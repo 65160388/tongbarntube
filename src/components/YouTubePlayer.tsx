@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Copy, ListEnd, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,13 @@ declare global {
   interface Window {
     YT: any;
     onYouTubeIframeAPIReady: () => void;
+    // Add missing property to window
+    onYouTubePlayerReady?: (event: any) => void;
   }
+}
+
+export interface YouTubePlayerHandle {
+  playVideo: (videoId: string) => void;
 }
 
 interface YouTubePlayerProps {
@@ -26,7 +32,7 @@ interface YouTubePlayerProps {
   onColorChange?: (color: string) => void;
 }
 
-export function YouTubePlayer({
+export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(({
   videoId,
   playlistId,
   onVideoEnd,
@@ -36,9 +42,20 @@ export function YouTubePlayer({
   t = (key) => key,
   onVideoPlay,
   onColorChange,
-}: YouTubePlayerProps) {
+}, ref) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Expose imperative methods to parent
+  useImperativeHandle(ref, () => ({
+    playVideo: (newVideoId: string) => {
+      if (playerRef.current && playerRef.current.loadVideoById) {
+        playerRef.current.loadVideoById(newVideoId);
+        // Optimistically update internal state to prevent "flash" of old ID
+        setCurrentVideoId(newVideoId);
+      }
+    }
+  }));
 
   // State to track the ACTUAL playing video (syncs with internal player)
   const [currentVideoId, setCurrentVideoId] = useState(videoId);
@@ -332,4 +349,4 @@ export function YouTubePlayer({
       )}
     </div>
   );
-}
+});

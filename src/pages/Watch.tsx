@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { YouTubePlayer } from '@/components/YouTubePlayer';
+import { YouTubePlayer, YouTubePlayerHandle } from '@/components/YouTubePlayer';
 import { Navbar } from '@/components/Navbar';
 import { QueuePanel } from '@/components/QueuePanel';
 import { VideoCard } from '@/components/VideoCard';
@@ -32,6 +32,9 @@ export default function Watch() {
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [dominantColor, setDominantColor] = useState<string>('');
 
+  // Ref to control the player imperatively (bypasses update lag)
+  const playerControlRef = useRef<YouTubePlayerHandle>(null);
+
   // Create current video object
   const currentPlayingVideo = useMemo<Video | null>(() => videoId
     ? {
@@ -48,8 +51,18 @@ export default function Watch() {
   const handleVideoEnd = useCallback(() => {
     const nextFromQueue = playNextFromQueue();
     if (nextFromQueue) {
+      // 1. Force player to play NEXT video immediately (Fixes background tab throttling)
+      playerControlRef.current?.playVideo(nextFromQueue.id);
+
+      // 2. Then update history and state
       addToHistory(nextFromQueue);
-      navigate(`/watch/${nextFromQueue.id}`);
+
+      // 3. Update URL (this might be delayed by browser in background, but audio is safe)
+      if (nextFromQueue.playlistId) {
+        navigate(`/watch/${nextFromQueue.id}?list=${nextFromQueue.playlistId}`, { replace: true });
+      } else {
+        navigate(`/watch/${nextFromQueue.id}`, { replace: true });
+      }
     }
   }, [playNextFromQueue, addToHistory, navigate]);
 
@@ -134,7 +147,8 @@ export default function Watch() {
           {/* Player */}
           <div className="mb-6 opacity-0 animate-fade-in">
             <YouTubePlayer
-              key={videoId}
+              ref={playerControlRef}
+              key="player-instance"
               videoId={videoId}
               playlistId={playlistId}
               onVideoEnd={handleVideoEnd}
