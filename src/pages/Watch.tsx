@@ -230,7 +230,10 @@ export default function Watch() {
 
         <main className="container max-w-7xl mx-auto px-4 py-6">
           {/* Player */}
-          <div className="mb-4 opacity-0 animate-fade-in">
+          <div
+            className="mb-4 opacity-0 animate-fade-in mx-auto w-full"
+            style={{ maxWidth: 'calc((100vh - 140px) * 1.777)' }}
+          >
             <YouTubePlayer
               ref={playerControlRef}
               key="player-instance" // STATIC KEY to prevent remounting
