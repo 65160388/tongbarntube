@@ -1,9 +1,10 @@
 import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { Copy, ListEnd, Play, Plus, X } from 'lucide-react';
+import { Copy, ListEnd, Play, Plus, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getVideoThumbnail, extractVideoId } from '@/utils/youtube';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 import type { Video } from '@/types';
 
 // Add global type for YouTube Iframe API
@@ -70,7 +71,7 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
   // State to track the ACTUAL playing video (syncs with internal  /* State */
   const [currentVideoId, setCurrentVideoId] = useState<string>(videoId || '');
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showCopied, setShowCopied] = useState(false);
+
   const [dominantColor, setDominantColor] = useState<string>('');
   const [showAddInput, setShowAddInput] = useState(false); // For Queue
   const [urlInput, setUrlInput] = useState('');
@@ -304,8 +305,6 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
   const handleCopyUrl = () => {
     // Copy the CURRENT video ID, not the prop ID
     navigator.clipboard.writeText(`https://youtube.com/watch?v=${currentVideoId}`);
-    setShowCopied(true);
-    setTimeout(() => setShowCopied(false), 2000);
   };
 
   const handleAddToQueue = () => {
@@ -376,16 +375,45 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
           <Button
             variant="ghost"
             size="icon"
-            onClick={handleCopyUrl}
+            onClick={() => {
+              handleCopyUrl();
+              toast({
+                className: "rounded-full bg-white/95 dark:bg-zinc-950/90 border border-zinc-200 dark:border-white/10 backdrop-blur-md shadow-2xl px-6 py-3 flex items-center justify-center min-w-[200px] w-auto mx-auto transform hover:scale-105 transition-all duration-300 group",
+                style: {
+                  // Light Mode: Standard Shadow
+                  // Dark Mode: Dynamic Neon Glow based on video color
+                  '--toast-shadow': dominantColor ? `0 0 30px -5px rgba(${dominantColor}, 0.5)` : '0 0 30px -5px rgba(255,255,255,0.1)',
+                } as React.CSSProperties,
+                description: (
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="p-1.5 rounded-full flex-shrink-0 transition-colors bg-zinc-100 dark:bg-white/10"
+                    >
+                      <Check className="w-5 h-5 text-zinc-900 dark:text-white stroke-[2.5px]" />
+                    </div>
+                    <div className="flex flex-col mr-2">
+                      <span className="font-bold text-base text-zinc-900 dark:text-white leading-none tracking-wide">{t('copied') || 'Copied'}</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-white/60 font-medium mt-1 uppercase tracking-wider">Ready to share</span>
+                    </div>
+
+                    {/* Style injection for Dark Mode Glow */}
+                    <style>
+                      {`
+                        .dark .group {
+                          box-shadow: var(--toast-shadow) !important;
+                          border-color: rgba(255,255,255,0.1) !important;
+                        }
+                      `}
+                    </style>
+                  </div>
+                ),
+                duration: 2000,
+              });
+            }}
             className="relative h-7 w-7"
             title={t('copyUrl')}
           >
             <Copy className="w-3.5 h-3.5" />
-            {showCopied && (
-              <span className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 bg-foreground text-background text-xs rounded whitespace-nowrap animate-fade-in">
-                {t('copied')}
-              </span>
-            )}
           </Button>
         </div>
 
