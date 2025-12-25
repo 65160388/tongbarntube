@@ -232,7 +232,7 @@ export default function Watch() {
 
         <main className={cn(
           "transition-all duration-700 ease-in-out mx-auto flex flex-col items-center",
-          theaterMode ? "w-[96vw] pt-12 pb-6" : "container px-4 max-w-7xl py-6"
+          theaterMode ? "w-[98vw] pt-4 pb-4" : "container px-4 max-w-6xl py-6"
         )}>
           {/* Player */}
           <div
@@ -241,10 +241,10 @@ export default function Watch() {
               theaterMode ? "animate-theater-enter" : "animate-normal-enter"
             )}
             style={{
-              // Smart Sizing: Use 96vw width normally, but if that makes the video too tall (overflowing height),
-              // limit width based on available height (Height * 16/9 aspect ratio)
+              // Theater Mode: Wide but limited by viewport height
+              // Expands to 98vw or height-based limit, whichever is smaller
               maxWidth: theaterMode
-                ? 'min(96vw, calc((100vh - 120px) * 1.778))'
+                ? 'min(98vw, calc((100vh - 20px) * 1.778))'
                 : '100%'
             }}
           >
