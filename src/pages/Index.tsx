@@ -91,8 +91,8 @@ export default function Index() {
 
       {/* Global Background Effects (Moved out of Hero for seamless light mode) */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-[-20%] left-[-20%] w-[90vw] h-[90vw] rounded-full bg-primary/10 blur-[180px] mix-blend-screen" />
-        <div className="absolute bottom-[-20%] right-[-20%] w-[90vw] h-[90vw] rounded-full bg-blue-500/10 blur-[180px] mix-blend-screen" />
+        <div className="absolute top-[-20%] left-[-20%] w-[90vw] h-[90vw] rounded-full bg-primary/10 blur-[180px] mix-blend-screen animate-pulse-slow" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[90vw] h-[90vw] rounded-full bg-blue-500/10 blur-[180px] mix-blend-screen animate-pulse-slow" style={{ animationDelay: '2s' }} />
         <div className="absolute inset-0 bg-playful-light opacity-60" />
       </div>
 
@@ -101,20 +101,20 @@ export default function Index() {
 
         <div className="container max-w-4xl mx-auto text-center relative z-10">
 
-          <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-8 text-balance">
+          <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-8 text-balance animate-fade-in">
             Tongbarn<span className="text-gradient">Tube</span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-muted-foreground/80 mb-16 max-w-2xl mx-auto font-light tracking-wide">
+          <p className="text-xl md:text-2xl text-muted-foreground/80 mb-16 max-w-2xl mx-auto font-light tracking-wide animate-fade-in stagger-1">
             {t('tagline')}
           </p>
 
           <form
             onSubmit={handleSubmit}
-            className="max-w-xl mx-auto mb-12"
+            className="max-w-xl mx-auto mb-12 animate-fade-in stagger-2"
           >
             <div className="relative group">
-              <div className="relative flex items-center bg-card/50 backdrop-blur-xl border border-white/10 rounded-2xl p-2 transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/20 focus-within:bg-card/80">
+              <div className="relative flex items-center bg-card/50 backdrop-blur-xl border border-white/10 rounded-2xl p-2 transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/20 focus-within:bg-card/80 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/20">
                 <Input
                   type="text"
                   placeholder={t('pasteUrl')}
@@ -128,7 +128,7 @@ export default function Index() {
                 <Button
                   type="submit"
                   size="lg"
-                  className="rounded-xl px-8 h-12 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300"
+                  className="rounded-xl px-8 h-12 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-105 active:scale-95"
                 >
                   <Play className="w-5 h-5 fill-current" />
                 </Button>
@@ -145,11 +145,11 @@ export default function Index() {
       <section className="py-32 px-4">
         <div className="container max-w-6xl mx-auto">
           <div className="text-center mb-24">
-            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6 flex items-center justify-center gap-3">
-              <Sparkles className="w-8 h-8 text-primary" />
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6 flex items-center justify-center gap-3 animate-fade-in group cursor-default">
+              <Sparkles className="w-8 h-8 text-primary animate-pulse-glow group-hover:rotate-12 group-hover:scale-125 transition-all duration-500" />
               {t('features')}
             </h2>
-            <div className="h-1 w-24 bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto rounded-full" />
+            <div className="h-1 w-24 bg-gradient-to-r from-transparent via-primary to-transparent mx-auto rounded-full animate-pulse" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
@@ -176,18 +176,20 @@ export default function Index() {
                 {t('recentlyWatched')}
               </h2>
               <Button
-                variant="ghost"
+                variant="destructive"
                 onClick={clearHistory}
-                className="text-muted-foreground hover:text-destructive transition-colors"
+                className="bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white shadow-lg shadow-red-500/30 transition-all duration-300 hover:scale-105 active:scale-95"
                 size="sm"
               >
                 {t('clearHistory')}
               </Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {history.slice(0, 12).map((item, index) => (
+              {history.slice(0, 20).map((item, index) => (
                 <div
                   key={item.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <VideoCard
                     video={item}
@@ -216,7 +218,7 @@ export default function Index() {
             <div className="flex flex-col md:flex-row items-center justify-between gap-12 relative z-10 w-full">
 
               {/* Decorative Image (LEFT) - Contained & Big */}
-              <div className="hidden lg:block absolute -bottom-24 -left-10 opacity-90 dark:opacity-80 pointer-events-none select-none z-0">
+              <div className="hidden lg:block absolute -bottom-24 -left-10 opacity-90 dark:opacity-80 pointer-events-none select-none z-0 animate-float-slow">
                 <img
                   src="/o1.png"
                   alt=""
@@ -242,7 +244,7 @@ export default function Index() {
               </div>
 
               {/* Decorative Image (RIGHT) - Contained & Big */}
-              <div className="hidden lg:block absolute -bottom-24 -right-10 opacity-90 dark:opacity-80 pointer-events-none select-none z-0">
+              <div className="hidden lg:block absolute -bottom-24 -right-10 opacity-90 dark:opacity-80 pointer-events-none select-none z-0 animate-float-slow" style={{ animationDelay: '1s' }}>
                 <img
                   src="/o1.png"
                   alt=""

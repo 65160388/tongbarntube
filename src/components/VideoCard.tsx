@@ -34,9 +34,8 @@ export const VideoCard = forwardRef<HTMLDivElement, VideoCardProps>(
         ref={ref}
         className={cn(
           "group relative rounded-xl overflow-hidden transition-all duration-200",
-          "bg-card border border-border/50 shadow-card",
-          "hover:shadow-lg hover:border-primary/20 hover:scale-[1.02]",
-          isActive && "ring-2 ring-primary border-primary/50"
+          "bg-card shadow-card",
+          "hover:shadow-lg hover:scale-[1.02]"
         )}
       >
         {/* Thumbnail */}
