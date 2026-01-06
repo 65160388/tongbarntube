@@ -86,7 +86,7 @@ export default function Index() {
         language={language}
         toggleLanguage={toggleLanguage}
         t={t}
-        alwaysShow // Force navbar to always show
+      // alwaysShow
       />
 
       {/* Global Background Effects (Moved out of Hero for seamless light mode) */}
@@ -101,7 +101,7 @@ export default function Index() {
 
         <div className="container max-w-4xl mx-auto text-center relative z-10">
 
-          <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-8 text-balance animate-fade-in">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8 text-balance animate-fade-in">
             Tongbarn<span className="text-gradient">Tube</span>
           </h1>
 
@@ -169,7 +169,7 @@ export default function Index() {
       {/* Recently Watched - Minimal */}
       {history.length > 0 && (
         <section className="pb-32 px-4">
-          <div className="container max-w-7xl mx-auto">
+          <div className="mx-auto w-full max-w-[1800px] px-6">
             <div className="flex items-center justify-between mb-12 border-b border-border/20 pb-6">
               <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
                 <Clock className="w-6 h-6 text-primary" />
@@ -184,7 +184,7 @@ export default function Index() {
                 {t('clearHistory')}
               </Button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {history.slice(0, 20).map((item, index) => (
                 <div
                   key={item.id}
@@ -233,7 +233,7 @@ export default function Index() {
                   <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
                     <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
                   </div>
-                  <h1 className="text-3xl font-bold tracking-tight text-foreground/90 drop-shadow-lg">
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground/90 drop-shadow-lg">
                     Tongbarn<span className="text-gradient drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]">Tube</span>
                   </h1>
                 </div>

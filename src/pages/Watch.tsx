@@ -232,7 +232,7 @@ export default function Watch() {
 
         <main className={cn(
           "transition-all duration-700 ease-in-out mx-auto flex flex-col items-center",
-          theaterMode ? "w-[98vw] pt-4 pb-4" : "container px-4 max-w-6xl py-6"
+          theaterMode ? "w-[98vw] pt-2 pb-4" : "container px-4 max-w-6xl py-2"
         )}>
           {/* Player */}
           <div
@@ -244,7 +244,7 @@ export default function Watch() {
               // Theater Mode: Wide but limited by viewport height
               // Expands to 98vw or height-based limit, whichever is smaller
               maxWidth: theaterMode
-                ? 'min(100vw, calc((101vh - 35px) * 1.785))'
+                ? 'min(100vw, calc((102dvh - 40px) * 1.785))'
                 : '100%'
             }}
           >
