@@ -475,79 +475,64 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
         >
           {isTheaterMode ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
         </Button>
+
+        {/* Inline Inputs - Index Style (Unified Wrapper) */}
+        {(showDirectPlayInput || showAddInput) && (
+          <div className="flex-1 animate-in fade-in slide-in-from-left-4 duration-300 origin-left ml-2">
+            <div className="relative flex items-center bg-card/50 backdrop-blur-xl border border-white/10 rounded-2xl p-1 transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/20 focus-within:bg-card/80 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/20 w-full">
+              <Input
+                placeholder={showDirectPlayInput ? t('pasteVideoUrl') : t('pasteVideoUrlDirectly')}
+                value={showDirectPlayInput ? directPlayUrl : urlInput}
+                onChange={(e) => showDirectPlayInput ? setDirectPlayUrl(e.target.value) : setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (showDirectPlayInput && directPlayUrl.trim()) {
+                      onDirectPlay?.(directPlayUrl);
+                      setDirectPlayUrl('');
+                      setShowDirectPlayInput(false);
+                    } else if (showAddInput) {
+                      handleAddToQueue();
+                    }
+                  }
+                }}
+                className="h-10 border-0 bg-transparent shadow-none focus-visible:ring-0 text-base px-4 placeholder:text-muted-foreground/40 font-light flex-1 min-w-0"
+                autoFocus
+              />
+
+              {/* Close / Clear Button */}
+              <button
+                onClick={() => {
+                  setShowDirectPlayInput(false);
+                  setShowAddInput(false);
+                  setDirectPlayUrl('');
+                  setUrlInput('');
+                }}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors mr-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <Button
+                className="rounded-xl px-6 h-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-105 active:scale-95"
+                onClick={() => {
+                  if (showDirectPlayInput && directPlayUrl.trim()) {
+                    onDirectPlay?.(directPlayUrl);
+                    setDirectPlayUrl('');
+                    setShowDirectPlayInput(false);
+                  } else if (showAddInput) {
+                    handleAddToQueue();
+                  }
+                }}
+                disabled={showDirectPlayInput ? !directPlayUrl.trim() : !urlInput.trim()}
+              >
+                <Play className="w-4 h-4 fill-current" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Direct Play Input */}
-      {showDirectPlayInput && (
-        <div className="mt-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
-          <div className="relative flex-1">
-            <Input
-              placeholder={t('pasteVideoUrl')}
-              value={directPlayUrl}
-              onChange={(e) => setDirectPlayUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && directPlayUrl.trim()) {
-                  onDirectPlay?.(directPlayUrl);
-                  setDirectPlayUrl('');
-                  setShowDirectPlayInput(false);
-                }
-              }}
-              className="w-full h-10 pl-3 pr-8 rounded-lg bg-card/50 border-white/10 focus-visible:ring-primary/20 shadow-sm backdrop-blur-sm"
-              autoFocus
-            />
-            <button
-              onClick={() => { setShowDirectPlayInput(false); setDirectPlayUrl(''); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <Button
-            className="h-10 px-6 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium shadow-md transition-all hover:scale-105 active:scale-95"
-            onClick={() => {
-              if (directPlayUrl.trim()) {
-                onDirectPlay?.(directPlayUrl);
-                setDirectPlayUrl('');
-                setShowDirectPlayInput(false);
-              }
-            }}
-            disabled={!directPlayUrl.trim()}
-          >
-            {t('playVideo')}
-            <Play className="w-4 h-4 fill-current ml-2" />
-          </Button>
-        </div>
-      )}
 
-      {/* Add to Queue Input */}
-      {showAddInput && (
-        <div className="mt-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
-          <div className="relative flex-1">
-            <Input
-              placeholder={t('pasteVideoUrlDirectly')}
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddToQueue()}
-              className="w-full h-10 pl-3 pr-8 rounded-lg bg-card/50 border-white/10 focus-visible:ring-primary/20 shadow-sm backdrop-blur-sm"
-              autoFocus
-            />
-            <button
-              onClick={() => { setShowAddInput(false); setUrlInput(''); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <Button
-            className="h-10 px-6 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium shadow-md transition-all hover:scale-105 active:scale-95"
-            onClick={handleAddToQueue}
-            disabled={!urlInput.trim()}
-          >
-            {t('playVideo')}
-            <Play className="w-4 h-4 fill-current ml-2" />
-          </Button>
-        </div>
-      )}
     </div>
   );
 });
