@@ -282,7 +282,10 @@ export default function Watch() {
               onColorChange={setDominantColor}
               onVideoPlay={handlePlayerVideoPlay}
               isTheaterMode={theaterMode}
-              onToggleTheater={() => setTheaterMode(prev => !prev)}
+              onToggleTheater={() => {
+                setTheaterMode(prev => !prev);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
           </div>
 
