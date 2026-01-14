@@ -93,44 +93,16 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
     }
   }, [videoId, currentVideoId]);
 
-  // Preemptive Queue Interceptor:
-  // If we let the video reach natural "END", the YouTube Playlist logic often fires before our React state can intercept.
-  // Solution: We poll near the end and "High Over" (Hijack) manually just before it finishes.
-  useEffect(() => {
-    if (!isPlaying || queueCount === 0) return;
-
-    const intervalId = setInterval(() => {
-      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-        const currentTime = playerRef.current.getCurrentTime();
-        const duration = playerRef.current.getDuration();
-
-        // If within 0.3s of end (and valid duration)
-        if (duration > 0 && (duration - currentTime) < 0.3) {
-          // 1. Force Pause to stop Playlist Auto-advance
-          playerRef.current.pauseVideo();
-          clearInterval(intervalId);
-
-          // 2. Manually trigger our End logic
-          // We use a timeout to break the stack and ensure pause takes effect
-          setTimeout(() => {
-            onVideoEnd();
-          }, 0);
-        }
-      }
-    }, 100); // Check every 100ms
-
-    return () => clearInterval(intervalId);
-  }, [isPlaying, queueCount, onVideoEnd]);
-
-
   // Track props with refs to access fresh values inside closures (event handlers)
   const onVideoEndRef = useRef(onVideoEnd);
   const onVideoPlayRef = useRef(onVideoPlay);
+  const queueCountRef = useRef(queueCount);
 
   useEffect(() => {
     onVideoEndRef.current = onVideoEnd;
     onVideoPlayRef.current = onVideoPlay;
-  }, [onVideoEnd, onVideoPlay]);
+    queueCountRef.current = queueCount;
+  }, [onVideoEnd, onVideoPlay, queueCount]);
 
   // Initialize YouTube Player ONCE
   useEffect(() => {
@@ -170,8 +142,10 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
             setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
 
             if (event.data === window.YT.PlayerState.ENDED) {
-              // Verify we haven't already moved on (race condition check)
-              if (onVideoEndRef.current) onVideoEndRef.current();
+              // Queue only – do NOT hijack playlist autoplay
+              if (queueCountRef.current > 0 && onVideoEndRef.current) {
+                onVideoEndRef.current();
+              }
             } else if (event.data === window.YT.PlayerState.PLAYING) {
               // If the player starts playing a NEW video ID automatically (playlist auto-advance)
               // We need to notify the parent to update URL/History
@@ -244,7 +218,12 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
 
         // Fallback: If not in list (or list check failed), load directly
         if (!handled && playerRef.current.loadVideoById) {
-          playerRef.current.loadVideoById(videoId);
+          // Check if already playing this video to prevent "stutter" / reload
+          // (Important when Native Playlist auto-advances and we just want to sync state)
+          const currentId = playerRef.current.getVideoData?.()?.video_id;
+          if (currentId !== videoId) {
+            playerRef.current.loadVideoById(videoId);
+          }
         }
       }
     }

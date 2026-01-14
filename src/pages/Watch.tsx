@@ -270,7 +270,7 @@ export default function Watch() {
           >
             <YouTubePlayer
               ref={playerControlRef}
-              key={`${playlistId || "no-playlist"}-${videoId}`} // FORCE REMOUNT on ANY video change matches strict user requirement
+              key={playlistId || "standalone"} // SMART KEY: Persist player for background autoplay, remount only on playlist change
               videoId={videoId!}
               playlistId={playlistId}
               onVideoEnd={handleVideoEnd}
