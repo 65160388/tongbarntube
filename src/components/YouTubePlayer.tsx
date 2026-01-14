@@ -86,6 +86,9 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
   // Track previous playlist to detect changes
   const prevPlaylistId = useRef<string | null | undefined>(playlistId);
 
+  // Track if we've already loaded a saved position for current video
+  const hasLoadedPosition = useRef<boolean>(false);
+
   // Sync currentVideoId with prop when prop changes (external navigation)
   useEffect(() => {
     if (videoId !== currentVideoId) {
@@ -135,13 +138,41 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
         },
         events: {
           onReady: (event: any) => {
-            // ...
+            // Load saved playback position (YouTube-like behavior)
+            const savedPosition = localStorage.getItem(`youtube_position_${videoId}`);
+            if (savedPosition && !hasLoadedPosition.current) {
+              try {
+                const { time, timestamp } = JSON.parse(savedPosition);
+                const videoDuration = event.target.getDuration();
+
+                // Only restore if video hasn't finished (not within last 3 seconds)
+                // and saved data is recent (within 30 days)
+                const isRecent = Date.now() - timestamp < 30 * 24 * 60 * 60 * 1000;
+                const notAtEnd = time < videoDuration - 3;
+
+                if (isRecent && notAtEnd && time > 0) {
+                  // Rewind 2 seconds for context continuity (minimum 0)
+                  const resumeTime = Math.max(0, time - 2);
+                  event.target.seekTo(resumeTime, true);
+                  hasLoadedPosition.current = true;
+
+                  // Clear the saved position after loading to prevent repeated seeks
+                  localStorage.removeItem(`youtube_position_${videoId}`);
+                }
+              } catch (e) {
+                // If parsing fails, just ignore
+              }
+            }
           },
           onStateChange: (event: any) => {
             // Sync internal state
             setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
 
             if (event.data === window.YT.PlayerState.ENDED) {
+              // Clear saved position when video finishes (fresh start for rewatch)
+              localStorage.removeItem(`youtube_position_${videoId}`);
+              hasLoadedPosition.current = false;
+
               // Queue only – do NOT hijack playlist autoplay
               if (queueCountRef.current > 0 && onVideoEndRef.current) {
                 onVideoEndRef.current();
@@ -284,6 +315,39 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
       onColorChange?.('239, 68, 68');
     };
   }, [currentVideoId]); // Update glow when currentVideoId changes
+
+  // Auto-save playback position every 1 second (YouTube-like behavior)
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+        try {
+          const currentTime = playerRef.current.getCurrentTime();
+          const playerState = playerRef.current.getPlayerState();
+
+          // Only save if video is playing or paused (not ended/unstarted)
+          if (playerState === window.YT.PlayerState.PLAYING ||
+            playerState === window.YT.PlayerState.PAUSED) {
+            localStorage.setItem(
+              `youtube_position_${currentVideoId}`,
+              JSON.stringify({
+                time: currentTime,
+                timestamp: Date.now()
+              })
+            );
+          }
+        } catch (e) {
+          // Silently fail if player not ready
+        }
+      }
+    }, 1000); // Save every 1 second
+
+    return () => clearInterval(saveInterval);
+  }, [currentVideoId]);
+
+  // Reset position loaded flag when video changes
+  useEffect(() => {
+    hasLoadedPosition.current = false;
+  }, [currentVideoId]);
 
   const handleCopyUrl = () => {
     // Copy the CURRENT video ID, not the prop ID
