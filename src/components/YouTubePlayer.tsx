@@ -88,6 +88,8 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
 
   // Track if we've already loaded a saved position for current video
   const hasLoadedPosition = useRef<boolean>(false);
+  // Track if we have preemptively triggered end (to avoid double firing)
+  const isPreemptingEnd = useRef<boolean>(false);
 
   // Sync currentVideoId with prop when prop changes (external navigation)
   useEffect(() => {
@@ -175,6 +177,13 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
 
               // Queue only – do NOT hijack playlist autoplay
               if (queueCountRef.current > 0 && onVideoEndRef.current) {
+                // If we already preempted, don't do anything (video is likely already changed or changing)
+                if (isPreemptingEnd.current) return;
+
+                // FORCE STOP to prevent Native Playlist from auto-advancing
+                // This fixes the "1 second glitch" where the playlist video starts before the queue video loads
+                try { event.target.stopVideo(); } catch (e) { }
+
                 onVideoEndRef.current();
               }
             } else if (event.data === window.YT.PlayerState.PLAYING) {
@@ -316,14 +325,16 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
     };
   }, [currentVideoId]); // Update glow when currentVideoId changes
 
-  // Auto-save playback position every 1 second (YouTube-like behavior)
+  // Auto-save playback position AND check for End Preemption
   useEffect(() => {
     const saveInterval = setInterval(() => {
       if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
         try {
           const currentTime = playerRef.current.getCurrentTime();
+          const duration = playerRef.current.getDuration();
           const playerState = playerRef.current.getPlayerState();
 
+          // 1. SAVE POSITION
           // Only save if video is playing or paused (not ended/unstarted)
           if (playerState === window.YT.PlayerState.PLAYING ||
             playerState === window.YT.PlayerState.PAUSED) {
@@ -335,11 +346,35 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
               })
             );
           }
+
+          // 2. PREEMPTIVE END FOR QUEUE
+          // If we are very close to the end (< 1.0s) and have a queue, 
+          // we PAUSE and trigger next video manually. 
+          // This prevents the Native YouTube Playlist logic from seeing "ENDED" and auto-advancing.
+          if (
+            queueCountRef.current > 0 &&
+            playerState === window.YT.PlayerState.PLAYING &&
+            duration > 0 &&
+            (duration - currentTime) < 0.5 && // 0.5s buffer
+            !isPreemptingEnd.current
+          ) {
+            console.log('[YouTubePlayer] Preempting native playlist for queue...');
+            isPreemptingEnd.current = true;
+
+            // Pause immediately to stop native logic
+            try { playerRef.current.pauseVideo(); } catch (e) { }
+
+            // Trigger our logic
+            if (onVideoEndRef.current) {
+              onVideoEndRef.current();
+            }
+          }
+
         } catch (e) {
           // Silently fail if player not ready
         }
       }
-    }, 1000); // Save every 1 second
+    }, 500); // Check every 500ms for better precision
 
     return () => clearInterval(saveInterval);
   }, [currentVideoId]);
@@ -347,6 +382,7 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
   // Reset position loaded flag when video changes
   useEffect(() => {
     hasLoadedPosition.current = false;
+    isPreemptingEnd.current = false;
   }, [currentVideoId]);
 
   const handleCopyUrl = () => {
