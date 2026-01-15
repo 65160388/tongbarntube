@@ -111,10 +111,10 @@ export default function Index() {
 
           <form
             onSubmit={handleSubmit}
-            className="max-w-xl mx-auto mb-12 animate-fade-in stagger-2"
+            className="max-w-2xl mx-auto mb-12 animate-fade-in stagger-2"
           >
             <div className="relative group">
-              <div className="relative flex items-center bg-card/50 backdrop-blur-xl border border-white/10 rounded-2xl p-2 transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/20 focus-within:bg-card/80 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/20">
+              <div className="relative flex items-center bg-card/50 backdrop-blur-xl border border-white/10 rounded-2xl p-2 transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/20 focus-within:bg-card/80 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/20 gap-2">
                 <Input
                   type="text"
                   placeholder={t('pasteUrl')}
@@ -123,12 +123,27 @@ export default function Index() {
                     setUrl(e.target.value);
                     setError('');
                   }}
-                  className="h-14 border-0 bg-transparent shadow-none focus-visible:ring-0 text-lg px-6 placeholder:text-muted-foreground/40 font-light"
+                  className="h-14 border-0 !bg-transparent shadow-none focus-visible:ring-0 text-lg px-6 placeholder:text-muted-foreground/40 font-light flex-1 min-w-0"
                 />
+
+                {/* Clear Button */}
+                {url && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrl('');
+                      setError('');
+                    }}
+                    className="p-2 text-muted-foreground hover:text-foreground transition-colors mr-1 rounded-full hover:bg-white/5 shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  </button>
+                )}
+
                 <Button
                   type="submit"
                   size="lg"
-                  className="rounded-xl px-8 h-12 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-105 active:scale-95"
+                  className="rounded-xl px-8 h-12 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-105 active:scale-95 shrink-0"
                 >
                   <Play className="w-5 h-5 fill-current" />
                 </Button>

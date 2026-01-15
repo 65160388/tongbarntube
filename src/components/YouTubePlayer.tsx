@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHand
 import { Copy, ListEnd, Play, Plus, X, Check, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getVideoThumbnail, extractVideoId } from '@/utils/youtube';
+import { getVideoThumbnail, extractVideoId, extractPlaylistId } from '@/utils/youtube';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import type { Video } from '@/types';
@@ -86,6 +86,11 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
   // Track previous playlist to detect changes
   const prevPlaylistId = useRef<string | null | undefined>(playlistId);
 
+  // Track if we've already loaded a saved position for current video
+  const hasLoadedPosition = useRef<boolean>(false);
+  // Track if we have preemptively triggered end (to avoid double firing)
+  const isPreemptingEnd = useRef<boolean>(false);
+
   // Sync currentVideoId with prop when prop changes (external navigation)
   useEffect(() => {
     if (videoId !== currentVideoId) {
@@ -93,44 +98,16 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
     }
   }, [videoId, currentVideoId]);
 
-  // Preemptive Queue Interceptor:
-  // If we let the video reach natural "END", the YouTube Playlist logic often fires before our React state can intercept.
-  // Solution: We poll near the end and "High Over" (Hijack) manually just before it finishes.
-  useEffect(() => {
-    if (!isPlaying || queueCount === 0) return;
-
-    const intervalId = setInterval(() => {
-      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-        const currentTime = playerRef.current.getCurrentTime();
-        const duration = playerRef.current.getDuration();
-
-        // If within 0.3s of end (and valid duration)
-        if (duration > 0 && (duration - currentTime) < 0.3) {
-          // 1. Force Pause to stop Playlist Auto-advance
-          playerRef.current.pauseVideo();
-          clearInterval(intervalId);
-
-          // 2. Manually trigger our End logic
-          // We use a timeout to break the stack and ensure pause takes effect
-          setTimeout(() => {
-            onVideoEnd();
-          }, 0);
-        }
-      }
-    }, 100); // Check every 100ms
-
-    return () => clearInterval(intervalId);
-  }, [isPlaying, queueCount, onVideoEnd]);
-
-
   // Track props with refs to access fresh values inside closures (event handlers)
   const onVideoEndRef = useRef(onVideoEnd);
   const onVideoPlayRef = useRef(onVideoPlay);
+  const queueCountRef = useRef(queueCount);
 
   useEffect(() => {
     onVideoEndRef.current = onVideoEnd;
     onVideoPlayRef.current = onVideoPlay;
-  }, [onVideoEnd, onVideoPlay]);
+    queueCountRef.current = queueCount;
+  }, [onVideoEnd, onVideoPlay, queueCount]);
 
   // Initialize YouTube Player ONCE
   useEffect(() => {
@@ -163,15 +140,52 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
         },
         events: {
           onReady: (event: any) => {
-            // ...
+            // Load saved playback position (YouTube-like behavior)
+            const savedPosition = localStorage.getItem(`youtube_position_${videoId}`);
+            if (savedPosition && !hasLoadedPosition.current) {
+              try {
+                const { time, timestamp } = JSON.parse(savedPosition);
+                const videoDuration = event.target.getDuration();
+
+                // Only restore if video hasn't finished (not within last 3 seconds)
+                // and saved data is recent (within 30 days)
+                const isRecent = Date.now() - timestamp < 30 * 24 * 60 * 60 * 1000;
+                const notAtEnd = time < videoDuration - 3;
+
+                if (isRecent && notAtEnd && time > 0) {
+                  // Rewind 2 seconds for context continuity (minimum 0)
+                  const resumeTime = Math.max(0, time - 2);
+                  event.target.seekTo(resumeTime, true);
+                  hasLoadedPosition.current = true;
+
+                  // Clear the saved position after loading to prevent repeated seeks
+                  localStorage.removeItem(`youtube_position_${videoId}`);
+                }
+              } catch (e) {
+                // If parsing fails, just ignore
+              }
+            }
           },
           onStateChange: (event: any) => {
             // Sync internal state
             setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
 
             if (event.data === window.YT.PlayerState.ENDED) {
-              // Verify we haven't already moved on (race condition check)
-              if (onVideoEndRef.current) onVideoEndRef.current();
+              // Clear saved position when video finishes (fresh start for rewatch)
+              localStorage.removeItem(`youtube_position_${videoId}`);
+              hasLoadedPosition.current = false;
+
+              // Queue only – do NOT hijack playlist autoplay
+              if (queueCountRef.current > 0 && onVideoEndRef.current) {
+                // If we already preempted, don't do anything (video is likely already changed or changing)
+                if (isPreemptingEnd.current) return;
+
+                // FORCE STOP to prevent Native Playlist from auto-advancing
+                // This fixes the "1 second glitch" where the playlist video starts before the queue video loads
+                try { event.target.stopVideo(); } catch (e) { }
+
+                onVideoEndRef.current();
+              }
             } else if (event.data === window.YT.PlayerState.PLAYING) {
               // If the player starts playing a NEW video ID automatically (playlist auto-advance)
               // We need to notify the parent to update URL/History
@@ -244,7 +258,12 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
 
         // Fallback: If not in list (or list check failed), load directly
         if (!handled && playerRef.current.loadVideoById) {
-          playerRef.current.loadVideoById(videoId);
+          // Check if already playing this video to prevent "stutter" / reload
+          // (Important when Native Playlist auto-advances and we just want to sync state)
+          const currentId = playerRef.current.getVideoData?.()?.video_id;
+          if (currentId !== videoId) {
+            playerRef.current.loadVideoById(videoId);
+          }
         }
       }
     }
@@ -306,6 +325,66 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
     };
   }, [currentVideoId]); // Update glow when currentVideoId changes
 
+  // Auto-save playback position AND check for End Preemption
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+        try {
+          const currentTime = playerRef.current.getCurrentTime();
+          const duration = playerRef.current.getDuration();
+          const playerState = playerRef.current.getPlayerState();
+
+          // 1. SAVE POSITION
+          // Only save if video is playing or paused (not ended/unstarted)
+          if (playerState === window.YT.PlayerState.PLAYING ||
+            playerState === window.YT.PlayerState.PAUSED) {
+            localStorage.setItem(
+              `youtube_position_${currentVideoId}`,
+              JSON.stringify({
+                time: currentTime,
+                timestamp: Date.now()
+              })
+            );
+          }
+
+          // 2. PREEMPTIVE END FOR QUEUE
+          // If we are very close to the end (< 1.0s) and have a queue, 
+          // we PAUSE and trigger next video manually. 
+          // This prevents the Native YouTube Playlist logic from seeing "ENDED" and auto-advancing.
+          if (
+            queueCountRef.current > 0 &&
+            playerState === window.YT.PlayerState.PLAYING &&
+            duration > 0 &&
+            (duration - currentTime) < 0.5 && // 0.5s buffer
+            !isPreemptingEnd.current
+          ) {
+            console.log('[YouTubePlayer] Preempting native playlist for queue...');
+            isPreemptingEnd.current = true;
+
+            // Pause immediately to stop native logic
+            try { playerRef.current.pauseVideo(); } catch (e) { }
+
+            // Trigger our logic
+            if (onVideoEndRef.current) {
+              onVideoEndRef.current();
+            }
+          }
+
+        } catch (e) {
+          // Silently fail if player not ready
+        }
+      }
+    }, 500); // Check every 500ms for better precision
+
+    return () => clearInterval(saveInterval);
+  }, [currentVideoId]);
+
+  // Reset position loaded flag when video changes
+  useEffect(() => {
+    hasLoadedPosition.current = false;
+    isPreemptingEnd.current = false;
+  }, [currentVideoId]);
+
   const handleCopyUrl = () => {
     // Copy the CURRENT video ID, not the prop ID
     navigator.clipboard.writeText(`https://youtube.com/watch?v=${currentVideoId}`);
@@ -321,6 +400,7 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
       id: extractedId,
       thumbnail: getVideoThumbnail(extractedId),
       url: urlInput.trim(),
+      playlistId: extractPlaylistId(urlInput) || undefined,
       addedAt: Date.now(),
     };
 
@@ -366,10 +446,10 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
       </div>
 
       {/* Compact URL bar */}
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-6 flex items-center gap-2">
         {/* Thumbnail + Copy */}
-        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-card/80 backdrop-blur-xl border border-border/50">
-          <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 bg-muted">
+        <div className="flex items-center gap-2 pr-2 pl-1.5 h-10 rounded-xl bg-card/80 backdrop-blur-xl border border-border/50">
+          <div className="w-7 h-7 rounded-md overflow-hidden flex-shrink-0 bg-muted">
             <img
               src={getVideoThumbnail(currentVideoId, 'default')}
               alt=""
@@ -414,7 +494,7 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
                 duration: 2000,
               });
             }}
-            className="relative h-7 w-7"
+            className="relative h-8 w-8 rounded-lg hover:bg-white/10"
             title={t('copyUrl')}
           >
             <Copy className="w-3.5 h-3.5" />
@@ -474,79 +554,64 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
         >
           {isTheaterMode ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
         </Button>
+
+        {/* Inline Inputs - Index Style (Unified Wrapper) */}
+        {(showDirectPlayInput || showAddInput) && (
+          <div className="flex-1 animate-in fade-in slide-in-from-left-4 duration-300 origin-left ml-2">
+            <div className="relative flex items-center bg-card/50 backdrop-blur-xl border border-white/10 rounded-2xl p-1 transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/20 focus-within:bg-card/80 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/20 w-full">
+              <Input
+                placeholder={showDirectPlayInput ? t('pasteVideoUrl') : t('pasteVideoUrlDirectly')}
+                value={showDirectPlayInput ? directPlayUrl : urlInput}
+                onChange={(e) => showDirectPlayInput ? setDirectPlayUrl(e.target.value) : setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (showDirectPlayInput && directPlayUrl.trim()) {
+                      onDirectPlay?.(directPlayUrl);
+                      setDirectPlayUrl('');
+                      setShowDirectPlayInput(false);
+                    } else if (showAddInput) {
+                      handleAddToQueue();
+                    }
+                  }
+                }}
+                className="h-10 border-0 bg-transparent shadow-none focus-visible:ring-0 text-base px-4 placeholder:text-muted-foreground/40 font-light flex-1 min-w-0"
+                autoFocus
+              />
+
+              {/* Close / Clear Button */}
+              <button
+                onClick={() => {
+                  setShowDirectPlayInput(false);
+                  setShowAddInput(false);
+                  setDirectPlayUrl('');
+                  setUrlInput('');
+                }}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors mr-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <Button
+                className="rounded-xl px-6 h-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-105 active:scale-95"
+                onClick={() => {
+                  if (showDirectPlayInput && directPlayUrl.trim()) {
+                    onDirectPlay?.(directPlayUrl);
+                    setDirectPlayUrl('');
+                    setShowDirectPlayInput(false);
+                  } else if (showAddInput) {
+                    handleAddToQueue();
+                  }
+                }}
+                disabled={showDirectPlayInput ? !directPlayUrl.trim() : !urlInput.trim()}
+              >
+                <Play className="w-4 h-4 fill-current" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Direct Play Input */}
-      {showDirectPlayInput && (
-        <div className="mt-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
-          <div className="relative flex-1">
-            <Input
-              placeholder={t('pasteVideoUrl')}
-              value={directPlayUrl}
-              onChange={(e) => setDirectPlayUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && directPlayUrl.trim()) {
-                  onDirectPlay?.(directPlayUrl);
-                  setDirectPlayUrl('');
-                  setShowDirectPlayInput(false);
-                }
-              }}
-              className="w-full h-10 pl-3 pr-8 rounded-lg bg-card/50 border-white/10 focus-visible:ring-primary/20 shadow-sm backdrop-blur-sm"
-              autoFocus
-            />
-            <button
-              onClick={() => { setShowDirectPlayInput(false); setDirectPlayUrl(''); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <Button
-            className="h-10 px-6 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium shadow-md transition-all hover:scale-105 active:scale-95"
-            onClick={() => {
-              if (directPlayUrl.trim()) {
-                onDirectPlay?.(directPlayUrl);
-                setDirectPlayUrl('');
-                setShowDirectPlayInput(false);
-              }
-            }}
-            disabled={!directPlayUrl.trim()}
-          >
-            {t('playVideo')}
-            <Play className="w-4 h-4 fill-current ml-2" />
-          </Button>
-        </div>
-      )}
 
-      {/* Add to Queue Input */}
-      {showAddInput && (
-        <div className="mt-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
-          <div className="relative flex-1">
-            <Input
-              placeholder={t('pasteVideoUrlDirectly')}
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddToQueue()}
-              className="w-full h-10 pl-3 pr-8 rounded-lg bg-card/50 border-white/10 focus-visible:ring-primary/20 shadow-sm backdrop-blur-sm"
-              autoFocus
-            />
-            <button
-              onClick={() => { setShowAddInput(false); setUrlInput(''); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <Button
-            className="h-10 px-6 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium shadow-md transition-all hover:scale-105 active:scale-95"
-            onClick={handleAddToQueue}
-            disabled={!urlInput.trim()}
-          >
-            {t('playVideo')}
-            <Play className="w-4 h-4 fill-current ml-2" />
-          </Button>
-        </div>
-      )}
     </div>
   );
 });
